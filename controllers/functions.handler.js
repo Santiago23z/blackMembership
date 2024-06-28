@@ -192,7 +192,7 @@ const WelcomeUser = () => {
       return;
     }
 
-    if (emailSubscriptions && (inactivityTime > maxInactivityTime)) {
+    if (userState[chatId].emailSubscriptions && (inactivityTime > maxInactivityTime)) {
       try {
         await verifyAndSaveEmail(chatId, text, bot);
       } catch (error) {

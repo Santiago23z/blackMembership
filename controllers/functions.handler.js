@@ -17,21 +17,17 @@ const WooCommerce = new WooCommerceAPI({
 
 const channel = { id: '-1002233147218', name: 'Club Griko 💎' };
 
-let emailSubscriptions = null; 
-let emailSubscriptionsLastFetched = 0; 
-let userSubscriptionStatus = {};
-let userFetchingStatus = {};
-let userLastActivity = {}; 
+let userState = {}; // Almacenar estado de cada usuario
 
-const getGrikoBlackMembershipEmails = async () => {
+const getGrikoBlackMembershipEmails = async (chatId) => {
   try {
-    console.log('Fetching GrikoBlack membership emails...');
+    console.log('Fetching GrikoBlack membership emails for chat', chatId);
     const now = Date.now();
     const cacheDuration = 24 * 60 * 60 * 1000; 
 
-    if (emailSubscriptions && (now - emailSubscriptionsLastFetched) < cacheDuration) {
-      console.log('Using cached email subscriptions');
-      return emailSubscriptions;
+    if (userState[chatId] && userState[chatId].emailSubscriptions && (now - userState[chatId].emailSubscriptionsLastFetched) < cacheDuration) {
+      console.log('Using cached email subscriptions for chat', chatId);
+      return userState[chatId].emailSubscriptions;
     }
 
     let page = 1;
@@ -75,10 +71,14 @@ const getGrikoBlackMembershipEmails = async () => {
 
     const validEmails = GrikoBlackEmails.filter(email => email !== null);
 
-    emailSubscriptions = validEmails;
-    emailSubscriptionsLastFetched = now;
+    if (!userState[chatId]) {
+      userState[chatId] = {};
+    }
 
-    console.log('Total de correos electrónicos con membresía "GrikoBlack":', validEmails.length);
+    userState[chatId].emailSubscriptions = validEmails;
+    userState[chatId].emailSubscriptionsLastFetched = now;
+
+    console.log('Total de correos electrónicos con membresía "GrikoBlack" para chat', chatId, ':', validEmails.length);
     console.log('Correos con membresía "GrikoBlack":', JSON.stringify(validEmails, null, 2));
 
     return validEmails;
@@ -96,7 +96,7 @@ const verifyAndSaveEmail = async (chatId, email, bot) => {
       return;
     }
 
-    const GrikoBlackEmails = await getGrikoBlackMembershipEmails();
+    const GrikoBlackEmails = await getGrikoBlackMembershipEmails(chatId);
     const hasGrikoBlackMembership = GrikoBlackEmails.includes(email.toLowerCase());
 
     if (!hasGrikoBlackMembership) {
@@ -161,6 +161,13 @@ const WelcomeUser = () => {
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
 
+    if (!userState[chatId]) {
+      userState[chatId] = {
+        fetchingStatus: false,
+        lastActivity: 0
+      };
+    }
+
     if (msg.chat.type !== 'private') {
       console.log('Mensaje ignorado de grupo o canal');
       return;
@@ -174,22 +181,18 @@ const WelcomeUser = () => {
     const text = msg.text.trim().toLowerCase();
 
     const now = Date.now();
-    const lastActivity = userLastActivity[chatId] || 0;
+    const lastActivity = userState[chatId].lastActivity;
     const inactivityTime = now - lastActivity;
     const maxInactivityTime = 2 * 60 * 1000; // 2 minutos en milisegundos
 
-    if (inactivityTime > maxInactivityTime) {
-      userSubscriptionStatus[chatId] = false;
-    }
+    userState[chatId].lastActivity = now;
 
-    userLastActivity[chatId] = now;
-
-    if (userFetchingStatus[chatId]) {
+    if (userState[chatId].fetchingStatus) {
       await bot.sendMessage(chatId, 'Por favor espera a que se obtengan las suscripciones activas.');
       return;
     }
 
-    if (emailSubscriptions) {
+    if (emailSubscriptions && (inactivityTime > maxInactivityTime)) {
       try {
         await verifyAndSaveEmail(chatId, text, bot);
       } catch (error) {
@@ -198,19 +201,18 @@ const WelcomeUser = () => {
       return;
     }
 
-    if (!userSubscriptionStatus[chatId]) {
-      userFetchingStatus[chatId] = true;
+    if (!userState[chatId].fetchingStatus) {
+      userState[chatId].fetchingStatus = true;
       await bot.sendMessage(chatId, 'Obteniendo correos con membresía "GrikoBlack", por favor espera. Podría tardar al menos un minuto.');
 
       try {
-        const GrikoBlackEmails = await getGrikoBlackMembershipEmails();
-        userFetchingStatus[chatId] = false;
+        const GrikoBlackEmails = await getGrikoBlackMembershipEmails(chatId);
+        userState[chatId].fetchingStatus = false;
 
-        emailSubscriptions = GrikoBlackEmails;
-        userSubscriptionStatus[chatId] = true;
+        userState[chatId].emailSubscriptions = GrikoBlackEmails;
         await bot.sendMessage(chatId, 'Escribe el correo con el que compraste en Sharpods.');
       } catch (err) {
-        userFetchingStatus[chatId] = false;
+        userState[chatId].fetchingStatus = false;
         await bot.sendMessage(chatId, 'Ocurrió un error al obtener los correos con membresía "GrikoBlack". Vuelve a intentar escribiendome.');
       }
     } else {

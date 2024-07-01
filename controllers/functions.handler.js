@@ -23,7 +23,7 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
   try {
     console.log('Fetching GrikoBlack membership emails for chat', chatId);
     const now = Date.now();
-    const cacheDuration = 24 * 60 * 60 * 1000; 
+    const cacheDuration = 24 * 60 * 60 * 1000;
 
     if (userState[chatId] && userState[chatId].emailSubscriptions && (now - userState[chatId].emailSubscriptionsLastFetched) < cacheDuration) {
       console.log('Using cached email subscriptions for chat', chatId);
@@ -34,7 +34,7 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
     let GrikoBlackMembers = [];
     let totalPages = 1;
 
-    const response = await WooCommerce.getAsync(`memberships/members?plan=griko-black&page=${page}`);
+    const response = await WooCommerce.getAsync(`memberships/members?griko-black&page=${page}`);
     const responseBody = response.toJSON().body;
     const responseData = JSON.parse(responseBody);
     GrikoBlackMembers = responseData;
@@ -45,7 +45,7 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
 
     while (page < totalPages) {
       page++;
-      const pageResponse = await WooCommerce.getAsync(`memberships/members?plan=griko-black&page=${page}`);
+      const pageResponse = await WooCommerce.getAsync(`memberships/members?griko-black&page=${page}`);
       const pageBody = pageResponse.toJSON().body;
       const pageData = JSON.parse(pageBody);
       GrikoBlackMembers = GrikoBlackMembers.concat(pageData);
@@ -58,7 +58,9 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
 
         if (customerResponse.headers['content-type'].includes('application/json')) {
           const customerData = JSON.parse(customerResponseBody);
-          return customerData.email.toLowerCase();
+          if (member.status === 'active') {
+            return customerData.email.toLowerCase();
+          }
         } else {
           console.error(`Invalid response for customer ${member.customer_id}:`, customerResponseBody);
           return null;
@@ -192,7 +194,7 @@ const WelcomeUser = () => {
       return;
     }
 
-    if (userState[chatId].emailSubscriptions && (inactivityTime > maxInactivityTime)) {
+    if (userState[chatId].emailSubscriptions && (inactivityTime < maxInactivityTime)) {
       try {
         await verifyAndSaveEmail(chatId, text, bot);
       } catch (error) {
@@ -213,7 +215,7 @@ const WelcomeUser = () => {
         await bot.sendMessage(chatId, 'Escribe el correo con el que compraste en Sharpods.');
       } catch (err) {
         userState[chatId].fetchingStatus = false;
-        await bot.sendMessage(chatId, 'Ocurrió un error al obtener los correos con membresía "GrikoBlack". Vuelve a intentar escribiendome.');
+        await bot.sendMessage(chatId, 'Ocurrió un error al obtener los correos con membresía "GrikoBlack". Vuelve a intentar escribiéndome.');
       }
     } else {
       await bot.sendMessage(chatId, 'Ya se han obtenido los correos con membresía "GrikoBlack". Escribe el correo con el que compraste en Sharpods.');

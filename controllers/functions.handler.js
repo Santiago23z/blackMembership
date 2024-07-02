@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const UsedEmail = require('../models/UsedEmail');
 
 const token = "7220350911:AAEZuooGbgFb0uSCubyi4mM-LOdwZdoi0BQ";
+
 const bot = new TelegramBot(token, { polling: true });
 
 const WooCommerce = new WooCommerceAPI({
@@ -17,11 +18,12 @@ const WooCommerce = new WooCommerceAPI({
 
 const channel = { id: '-1002233147218', name: 'Club Griko 💎' };
 
+
 let userState = {}; // Almacenar estado de cada usuario
 
-const getGrikoBlackMembershipEmails = async (chatId) => {
+const getGrikoMembershipEmails = async (chatId) => {
   try {
-    console.log('Fetching GrikoBlack membership emails for chat', chatId);
+    console.log('Fetching Griko membership emails for chat', chatId);
     const now = Date.now();
     const cacheDuration = 24 * 60 * 60 * 1000;
 
@@ -31,13 +33,13 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
     }
 
     let page = 1;
-    let GrikoBlackMembers = [];
+    let GrikoMembers = [];
     let totalPages = 1;
 
-    const response = await WooCommerce.getAsync(`memberships/members?griko-black&page=${page}`);
+    const response = await WooCommerce.getAsync(`memberships/members?plan=griko-black&page=${page}`);
     const responseBody = response.toJSON().body;
     const responseData = JSON.parse(responseBody);
-    GrikoBlackMembers = responseData;
+    GrikoMembers = responseData;
 
     if (response.headers['x-wp-totalpages']) {
       totalPages = parseInt(response.headers['x-wp-totalpages']);
@@ -45,13 +47,13 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
 
     while (page < totalPages) {
       page++;
-      const pageResponse = await WooCommerce.getAsync(`memberships/members?griko-black&page=${page}`);
+      const pageResponse = await WooCommerce.getAsync(`memberships/members?plan=griko-black&page=${page}`);
       const pageBody = pageResponse.toJSON().body;
       const pageData = JSON.parse(pageBody);
-      GrikoBlackMembers = GrikoBlackMembers.concat(pageData);
+      GrikoMembers = GrikoMembers.concat(pageData);
     }
 
-    const GrikoBlackEmails = await Promise.all(GrikoBlackMembers.map(async (member) => {
+    const GrikoEmails = await Promise.all(GrikoMembers.map(async (member) => {
       try {
         const customerResponse = await WooCommerce.getAsync(`customers/${member.customer_id}`);
         const customerResponseBody = customerResponse.toJSON().body;
@@ -71,7 +73,7 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
       }
     }));
 
-    const validEmails = GrikoBlackEmails.filter(email => email !== null);
+    const validEmails = GrikoEmails.filter(email => email !== null);
 
     if (!userState[chatId]) {
       userState[chatId] = {};
@@ -80,12 +82,12 @@ const getGrikoBlackMembershipEmails = async (chatId) => {
     userState[chatId].emailSubscriptions = validEmails;
     userState[chatId].emailSubscriptionsLastFetched = now;
 
-    console.log('Total de correos electrónicos con membresía "GrikoBlack" para chat', chatId, ':', validEmails.length);
-    console.log('Correos con membresía "GrikoBlack":', JSON.stringify(validEmails, null, 2));
+    console.log('Total de correos electrónicos con membresía "Griko" para chat', chatId, ':', validEmails.length);
+    console.log('Correos con membresía "Griko":', JSON.stringify(validEmails, null, 2));
 
     return validEmails;
   } catch (error) {
-    console.error('Error al obtener los correos de membresía GrikoBlack:', error);
+    console.error('Error al obtener los correos de membresía Griko:', error);
     return [];
   }
 };
@@ -98,11 +100,11 @@ const verifyAndSaveEmail = async (chatId, email, bot) => {
       return;
     }
 
-    const GrikoBlackEmails = await getGrikoBlackMembershipEmails(chatId);
-    const hasGrikoBlackMembership = GrikoBlackEmails.includes(email.toLowerCase());
+    const GrikoEmails = await getGrikoMembershipEmails(chatId);
+    const hasGrikoMembership = GrikoEmails.includes(email.toLowerCase());
 
-    if (!hasGrikoBlackMembership) {
-      await bot.sendMessage(chatId, `No tienes una suscripción actualmente activa con la membresía "GrikoBlack".`);
+    if (!hasGrikoMembership) {
+      await bot.sendMessage(chatId, `No tienes una suscripción actualmente activa con la membresía "Griko".`);
       return;
     }
 
@@ -205,20 +207,20 @@ const WelcomeUser = () => {
 
     if (!userState[chatId].fetchingStatus) {
       userState[chatId].fetchingStatus = true;
-      await bot.sendMessage(chatId, 'Obteniendo correos con membresía "GrikoBlack", por favor espera. Podría tardar al menos un minuto.');
+      await bot.sendMessage(chatId, 'Obteniendo correos con membresía "Griko", por favor espera. Podría tardar al menos un minuto.');
 
       try {
-        const GrikoBlackEmails = await getGrikoBlackMembershipEmails(chatId);
+        const GrikoEmails = await getGrikoMembershipEmails(chatId);
         userState[chatId].fetchingStatus = false;
 
-        userState[chatId].emailSubscriptions = GrikoBlackEmails;
+        userState[chatId].emailSubscriptions = GrikoEmails;
         await bot.sendMessage(chatId, 'Escribe el correo con el que compraste en Sharpods.');
       } catch (err) {
         userState[chatId].fetchingStatus = false;
-        await bot.sendMessage(chatId, 'Ocurrió un error al obtener los correos con membresía "GrikoBlack". Vuelve a intentar escribiéndome.');
+        await bot.sendMessage(chatId, 'Ocurrió un error al obtener los correos con membresía "Griko". Vuelve a intentar escribiéndome.');
       }
     } else {
-      await bot.sendMessage(chatId, 'Ya se han obtenido los correos con membresía "GrikoBlack". Escribe el correo con el que compraste en Sharpods.');
+      await bot.sendMessage(chatId, 'Ya se han obtenido los correos con membresía "Griko". Escribe el correo con el que compraste en Sharpods.');
     }
   });
 };

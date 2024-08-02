@@ -18,7 +18,6 @@ const WooCommerce = new WooCommerceAPI({
 
 const channel = { id: '-1002233147218', name: 'Club Griko 💎' };
 
-
 let userState = {}; // Almacenar estado de cada usuario
 
 const getGrikoMembershipEmails = async (chatId) => {
@@ -101,6 +100,7 @@ const verifyAndSaveEmail = async (chatId, email, bot) => {
     }
 
     const GrikoEmails = await getGrikoMembershipEmails(chatId);
+    console.log(`Fetched Griko emails: ${JSON.stringify(GrikoEmails, null, 2)}`);
     const hasGrikoMembership = GrikoEmails.includes(email.toLowerCase());
 
     if (!hasGrikoMembership) {

@@ -35,16 +35,14 @@ const getGrikoMembershipEmails = async (chatId) => {
     let GrikoMembers = [];
     let totalPages = 1;
 
-    const response = await WooCommerce.getAsync(`memberships/members?plan=griko-black&page=${page}`);
-    const responseBody = response.toJSON().body;
+    const initialResponse = await WooCommerce.getAsync(`memberships/members?plan=griko-black&page=${page}`);
+    const responseBody = initialResponse.toJSON().body;
     const responseData = JSON.parse(responseBody);
     GrikoMembers = responseData;
 
-    if (response.headers['x-wp-totalpages']) {
-      totalPages = parseInt(response.headers['x-wp-totalpages']);
+    if (initialResponse.headers['x-wp-totalpages']) {
+      totalPages = parseInt(initialResponse.headers['x-wp-totalpages']);
     }
-
-    console.log(`Total pages: ${totalPages}`);
 
     while (page <= totalPages) {
       console.log(`Fetching page ${page}`);
@@ -54,8 +52,6 @@ const getGrikoMembershipEmails = async (chatId) => {
       GrikoMembers = GrikoMembers.concat(pageData);
       page++;
     }
-
-    console.log(`Total Griko members fetched: ${GrikoMembers.length}`);
 
     const GrikoEmails = await Promise.all(GrikoMembers.map(async (member) => {
       try {
